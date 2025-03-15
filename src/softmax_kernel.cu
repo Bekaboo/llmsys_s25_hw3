@@ -118,13 +118,13 @@ __global__ void ker_attn_softmax_lt32(T *inp, const T *attn_mask, int from_len,
                                  to_len);
     }
     // END ASSIGN3_1
-  }  // blockIdx.x
+  } // blockIdx.x
 }
 
 template <typename T, int block_dim, int ele_per_thread>
 __global__ void ker_attn_softmax(T *inp, const T *attn_mask, int from_len,
                                  int to_len, bool mask_future) {
-  
+
   int batch_id = blockIdx.y;
   int head_id = blockIdx.z;
   const int nhead = gridDim.z;
@@ -156,7 +156,7 @@ __global__ void ker_attn_softmax(T *inp, const T *attn_mask, int from_len,
     /* step 1. compute max */
     // thread local max
     // BEGIN ASSIGN3_1
-    
+
     // END ASSIGN3_1
     // block reduce max
     blockReduce<ReduceType::kMax, token_per_reduce>(l_max);
@@ -172,7 +172,7 @@ __global__ void ker_attn_softmax(T *inp, const T *attn_mask, int from_len,
     /* step 2. compute sum */
     // thread local sum
     // BEGIN ASSIGN3_1
-    
+
     // END ASSIGN3_1
     // block reduce sum
     blockReduce<ReduceType::kSum, token_per_reduce>(l_sum);
@@ -187,9 +187,9 @@ __global__ void ker_attn_softmax(T *inp, const T *attn_mask, int from_len,
 
     /* step 3. compute final result */
     // BEGIN ASSIGN3_1
-   
+
     // END ASSIGN3_1
-  }  // blockIdx.x
+  } // blockIdx.x
 }
 
 /*
@@ -199,10 +199,9 @@ __global__ void ker_attn_softmax(T *inp, const T *attn_mask, int from_len,
 */
 // template <>
 extern "C" {
-void launch_attn_softmax(float *inp, const float *attn_mask,
-                                int batch_size, int nhead, int from_len,
-                                int to_len, bool mask_future,
-                                cudaStream_t stream) {
+void launch_attn_softmax(float *inp, const float *attn_mask, int batch_size,
+                         int nhead, int from_len, int to_len, bool mask_future,
+                         cudaStream_t stream) {
 
   int float_size = sizeof(float);
   int inp_size = batch_size * nhead * from_len * to_len * float_size;
@@ -257,9 +256,8 @@ void launch_attn_softmax(float *inp, const float *attn_mask,
   // Free memory on device
   cudaFree(d_inp);
   cudaFree(d_attn_mask);
-
-}}
-
+}
+}
 
 /**
 @brief: ker_attn_softmax_bw
@@ -286,7 +284,7 @@ __global__ void ker_attn_softmax_bw(T *grad, const T *inp, int softmax_length) {
   T inp_reg[ITERATIONS];
   float sum = 0.0;
 
-  #pragma unroll
+#pragma unroll
   for (int i = 0; i < ITERATIONS; ++i) {
     int curr_idx = threadIdx.x + i * WARP_SIZE;
     if (curr_idx < softmax_length) {
@@ -299,9 +297,10 @@ __global__ void ker_attn_softmax_bw(T *grad, const T *inp, int softmax_length) {
   cg::thread_block b = cg::this_thread_block();
   cg::thread_block_tile<WARP_SIZE> g = cg::tiled_partition<WARP_SIZE>(b);
 
-  for (int i = 1; i < WARP_SIZE; i <<= 1) sum += g.shfl_xor(sum, i);
+  for (int i = 1; i < WARP_SIZE; i <<= 1)
+    sum += g.shfl_xor(sum, i);
 
-  #pragma unroll
+#pragma unroll
   for (int i = 0; i < ITERATIONS; ++i) {
     int curr_idx = threadIdx.x + i * WARP_SIZE;
     if (curr_idx < softmax_length)
@@ -311,28 +310,23 @@ __global__ void ker_attn_softmax_bw(T *grad, const T *inp, int softmax_length) {
 
 // template <typename T>
 extern "C" {
-void launch_attn_softmax_bw(float *out_grad,
-                                const float *soft_inp, int rows,
-                                int softmax_len,
-                                cudaStream_t stream) {
-  
+void launch_attn_softmax_bw(float *out_grad, const float *soft_inp, int rows,
+                            int softmax_len, cudaStream_t stream) {
+
   const int warps_per_block = 4;
   dim3 grid_dim((rows + warps_per_block - 1) / warps_per_block);
   dim3 block_dim(WARP_SIZE, warps_per_block);
   // BEGIN ASSIGN3_1
-  
-  
+
   // Launch kernel
   // Hint: use ker_attn_softmax_bw<float, ITERATIONS> depending on softmax_len
-  
+
   // Copy back to the host
-  
-  
 
   // Free memory on device
   // END ASSIGN3_1
+}
+}
 
-}}
-
-}  
-} 
+} // namespace cuda
+} // namespace lightseq

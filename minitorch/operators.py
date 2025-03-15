@@ -9,11 +9,12 @@ from typing import Callable, Iterable
 #
 # Implementation of a prelude of elementary functions.
 
-def pow(x: float, y: float) -> float: 
-    return x ** y
+
+def pow(x: float, y: float) -> float:
+    return x**y
 
 
-def tanh(x: float) -> float: 
+def tanh(x: float) -> float:
     return math.tanh(x)
 
 
@@ -163,6 +164,7 @@ def map(fn: Callable[[float], float]) -> Callable[[Iterable[float]], Iterable[fl
          A function that takes a list, applies `fn` to each element, and returns a
          new list
     """
+
     # ASSIGN0.3
     def _map(ls: Iterable[float]) -> Iterable[float]:
         ret = []
@@ -182,7 +184,7 @@ def negList(ls: Iterable[float]) -> Iterable[float]:
 
 
 def zipWith(
-    fn: Callable[[float, float], float]
+    fn: Callable[[float, float], float],
 ) -> Callable[[Iterable[float], Iterable[float]], Iterable[float]]:
     """
     Higher-order zipwith (or map2).
@@ -197,6 +199,7 @@ def zipWith(
          applying fn(x, y) on each pair of elements.
 
     """
+
     # ASSIGN0.3
     def _zipWith(ls1: Iterable[float], ls2: Iterable[float]) -> Iterable[float]:
         ret = []
@@ -230,6 +233,7 @@ def reduce(
          $x_1 \ldots x_n$ and computes the reduction :math:`fn(x_3, fn(x_2,
          fn(x_1, x_0)))`
     """
+
     # ASSIGN0.3
     def _reduce(ls: Iterable[float]) -> float:
         val = start

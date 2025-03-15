@@ -11,6 +11,7 @@ from .tensor_strategies import tensors
 
 datatype = np.float32
 
+
 @pytest.mark.task4_3
 @given(tensors(shape=(1, 1, 4, 4)))
 def test_avg(t: Tensor) -> None:
@@ -116,6 +117,7 @@ def test_log_softmax(t: Tensor) -> None:
 
     minitorch.grad_check(lambda a: minitorch.logsoftmax(a, dim=2), t)
 
+
 ########################################################################
 # ASSIGNMENT 2 TESTS
 ########################################################################
@@ -123,10 +125,12 @@ def test_log_softmax(t: Tensor) -> None:
 import numba
 
 GENERAL_SHAPES = [(2, 5), (3, 8), (64, 128)]
-_BACKENDS = [pytest.param(
-                 minitorch.TensorBackend(minitorch.CudaKernelOps), 
-                 marks=pytest.mark.skipif(not numba.cuda.is_available(), reason="No GPU")
-             )] 
+_BACKENDS = [
+    pytest.param(
+        minitorch.TensorBackend(minitorch.CudaKernelOps),
+        marks=pytest.mark.skipif(not numba.cuda.is_available(), reason="No GPU"),
+    )
+]
 
 
 @pytest.mark.parametrize("sizes", GENERAL_SHAPES)
@@ -137,31 +141,25 @@ def test_a2_gelu(sizes, backend):
     A_ = torch.tensor(x, dtype=torch.float32, requires_grad=True)
 
     result = minitorch.GELU(A)
-    result_ = torch.nn.functional.gelu(A_, approximate='tanh')
+    result_ = torch.nn.functional.gelu(A_, approximate="tanh")
 
     np.testing.assert_allclose(
-        result.to_numpy(),
-        result_.detach().numpy(),
-        atol=1e-5,
-        rtol=1e-5
+        result.to_numpy(), result_.detach().numpy(), atol=1e-5, rtol=1e-5
     )
 
     result.sum().backward()
     result_.sum().backward()
 
     np.testing.assert_allclose(
-        A.grad.to_numpy(),
-        A_.grad.detach().numpy(),
-        atol=1e-5,
-        rtol=1e-5
+        A.grad.to_numpy(), A_.grad.detach().numpy(), atol=1e-5, rtol=1e-5
     )
 
 
 @pytest.mark.parametrize("sizes", GENERAL_SHAPES)
 @pytest.mark.parametrize("backend", _BACKENDS, ids=["CudaKernelOps"])
 def test_a2_logsumexp(sizes, backend):
-    dim=1
-    
+    dim = 1
+
     x = np.random.randn(*sizes).astype(datatype)
     A = minitorch.tensor(x.tolist(), backend=backend)
     _A = torch.tensor(x, dtype=torch.float32, requires_grad=True)
@@ -170,20 +168,14 @@ def test_a2_logsumexp(sizes, backend):
     _result = torch.logsumexp(_A, dim=dim, keepdim=True)
 
     np.testing.assert_allclose(
-        result.to_numpy(),
-        _result.detach().numpy(),
-        atol=1e-5,
-        rtol=1e-5
+        result.to_numpy(), _result.detach().numpy(), atol=1e-5, rtol=1e-5
     )
 
     result.sum().backward()
     _result.sum().backward()
 
     np.testing.assert_allclose(
-        A.grad.to_numpy(),
-        _A.grad.detach().numpy(),
-        atol=1e-5,
-        rtol=1e-5
+        A.grad.to_numpy(), _A.grad.detach().numpy(), atol=1e-5, rtol=1e-5
     )
 
 
@@ -197,29 +189,26 @@ def test_a2_softmax_loss(batches, classes, backend):
     logits_np = np.random.randn(batches, classes).astype(datatype)
     targets_np = np.random.randint(low=0, high=classes, size=(batches,))
 
-
     logits = minitorch.tensor_from_numpy(logits_np, backend=backend, requires_grad=True)
-    targets = minitorch.tensor_from_numpy(targets_np, backend=backend, requires_grad=True)
+    targets = minitorch.tensor_from_numpy(
+        targets_np, backend=backend, requires_grad=True
+    )
 
     _logits = torch.tensor(logits_np, dtype=torch.float32, requires_grad=True)
     _targets = torch.tensor(targets_np, dtype=torch.long)
 
     result = minitorch.softmax_loss(logits, targets)
-    _result_none = torch.nn.functional.cross_entropy(_logits, _targets, reduction='none')
+    _result_none = torch.nn.functional.cross_entropy(
+        _logits, _targets, reduction="none"
+    )
 
     np.testing.assert_allclose(
-        result.to_numpy(),
-        _result_none.detach().numpy(),
-        atol=1e-5,
-        rtol=1e-5
+        result.to_numpy(), _result_none.detach().numpy(), atol=1e-5, rtol=1e-5
     )
 
     result.sum().backward()
     _result_none.sum().backward()
 
     np.testing.assert_allclose(
-        logits.to_numpy(), 
-        _logits.detach().numpy(),
-        atol=1e-5, 
-        rtol=1e-5
+        logits.to_numpy(), _logits.detach().numpy(), atol=1e-5, rtol=1e-5
     )

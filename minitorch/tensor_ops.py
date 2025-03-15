@@ -20,8 +20,7 @@ if TYPE_CHECKING:
 
 
 class MapProto(Protocol):
-    def __call__(self, x: Tensor, out: Optional[Tensor] = ..., /) -> Tensor:
-        ...
+    def __call__(self, x: Tensor, out: Optional[Tensor] = ..., /) -> Tensor: ...
 
 
 class TensorOps:
@@ -144,7 +143,7 @@ class SimpleOps(TensorOps):
 
     @staticmethod
     def zip(
-        fn: Callable[[float, float], float]
+        fn: Callable[[float, float], float],
     ) -> Callable[["Tensor", "Tensor"], "Tensor"]:
         """
         Higher-order tensor zip function ::
@@ -234,19 +233,19 @@ class SimpleOps(TensorOps):
 
     @staticmethod
     def attn_softmax_fw(inp: Tensor, mask: Tensor):
-      raise NotImplementedError("Not implemented in this assignment")
+        raise NotImplementedError("Not implemented in this assignment")
 
     @staticmethod
     def attn_softmax_bw():
-      raise NotImplementedError("Not implemented in this assignment")
+        raise NotImplementedError("Not implemented in this assignment")
 
     @staticmethod
     def layernorm_fw(inp: tensor):
-      raise NotImplementedError("Not implemented in this assignment")
+        raise NotImplementedError("Not implemented in this assignment")
 
     @staticmethod
     def layernorm_bw():
-      raise NotImplementedError("Not implemented in this assignment")
+        raise NotImplementedError("Not implemented in this assignment")
 
     is_cuda = False
 
@@ -255,7 +254,7 @@ class SimpleOps(TensorOps):
 
 
 def tensor_map(
-    fn: Callable[[float], float]
+    fn: Callable[[float], float],
 ) -> Callable[[Storage, Shape, Strides, Storage, Shape, Strides], None]:
     """
     Low-level implementation of tensor map between
@@ -303,7 +302,7 @@ def tensor_map(
 
 
 def tensor_zip(
-    fn: Callable[[float, float], float]
+    fn: Callable[[float, float], float],
 ) -> Callable[
     [Storage, Shape, Strides, Storage, Shape, Strides, Storage, Shape, Strides], None
 ]:
@@ -359,7 +358,7 @@ def tensor_zip(
 
 
 def tensor_reduce(
-    fn: Callable[[float, float], float]
+    fn: Callable[[float, float], float],
 ) -> Callable[[Storage, Shape, Strides, Storage, Shape, Strides, int], None]:
     """
     Low-level implementation of tensor reduce.

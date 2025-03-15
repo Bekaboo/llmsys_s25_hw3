@@ -20,11 +20,19 @@ if TYPE_CHECKING:
     from typing import Any, List, Tuple, Union
 
     from .tensor import Tensor
-    from .tensor_data import (UserIndex, UserShape,
-                              Storage, OutIndex, Index, Shape, Strides)
+    from .tensor_data import (
+        UserIndex,
+        UserShape,
+        Storage,
+        OutIndex,
+        Index,
+        Shape,
+        Strides,
+    )
 
 datatype = np.float32
 datasize = 4
+
 
 def wrap_tuple(x):  # type: ignore
     "Turn a possible value into a tuple"
@@ -135,7 +143,7 @@ class PowerScalar(Function):
                 The tensor to raise to the power of.
             scalar : Tensor
                 The exponent of shape (1,).
-        
+
         Returns
         -------
             output : Tensor
@@ -149,14 +157,14 @@ class PowerScalar(Function):
         """Calculates the gradient of the input a with respect to grad_output.
         NOTE: miniTorch requires that we two gradients: one for the input tensor and scalar.
         Technically, we should only return one gradient for the tensor since there is no gradient for a constant.
-        
+
         Parameters
         ----------
             ctx : Context
                 The same context used in forward.
             grad_output : Tensor
                 The gradient in the backward pass with respect to the output of forward. (Same shape as forward's output.)
-        
+
         Returns
         -------
             gradients : Tuple[Tensor, float]
@@ -164,8 +172,8 @@ class PowerScalar(Function):
                 gradient_for_a must be the correct gradient, but just return 0.0 for the gradient of scalar.
         """
         a, scalar = ctx.saved_values
-        grad_a    = None
-        
+        grad_a = None
+
         # COPY FROM ASSIGN2_1
         raise NotImplementedError
 
@@ -174,7 +182,7 @@ class PowerScalar(Function):
 
 class Tanh(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor) -> Tensor: 
+    def forward(ctx: Context, a: Tensor) -> Tensor:
         """Calculates the element-wise tanh of a
         Equivalent to np.tanh(a) in numpy if a is a n-dimensional array.
 
@@ -184,7 +192,7 @@ class Tanh(Function):
                 A context object you can temporarily store values to.
             a : Tensor
                 The tensor to take the tanh of.
-        
+
         Returns
         -------
             output : Tensor
@@ -192,18 +200,18 @@ class Tanh(Function):
         """
         # COPY FROM ASSIGN2_1
         raise NotImplementedError
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """Calculates the gradient of the input a with respect to grad_output.
-        
+
         Parameters
         ----------
             ctx : Context
                 The same context used in forward.
             grad_output : Tensor
                 The gradient in the backward pass with respect to the output of forward. (Same shape as forward's output.)
-        
+
         Returns
         -------
             output : Tensor
@@ -408,7 +416,7 @@ class MatMul(Function):
             order = list(range(a.dims))
             order[-2], order[-1] = order[-1], order[-2]
             return a._new(a._tensor.permute(*order))
-        
+
         return (
             grad_output.f.matrix_multiply(grad_output, transpose(t2)),
             grad_output.f.matrix_multiply(transpose(t1), grad_output),
@@ -418,29 +426,29 @@ class MatMul(Function):
 class Attn_Softmax(Function):
     @staticmethod
     def forward(ctx: Context, inp: Tensor, mask: Tensor) -> Tensor:
-      #   BEGIN ASSIGN3_1 
-      raise NotImplementedError("Need to implement for Assignment 3")
-      #   END ASSIGN3_1
+        #   BEGIN ASSIGN3_1
+        raise NotImplementedError("Need to implement for Assignment 3")
+        #   END ASSIGN3_1
 
     @staticmethod
     def backward(ctx: Context, out_grad: Tensor) -> Tensor:
-      #   BEGIN ASSIGN3_1 
-      raise NotImplementedError("Need to implement for Assignment 3")
-      #   END ASSIGN3_1
+        #   BEGIN ASSIGN3_1
+        raise NotImplementedError("Need to implement for Assignment 3")
+        #   END ASSIGN3_1
 
 
 class LayerNorm(Function):
     @staticmethod
     def forward(ctx: Context, inp: Tensor, gamma: Tensor, beta: Tensor) -> Tensor:
-      #   BEGIN ASSIGN3_2 
-      raise NotImplementedError("Need to implement for Assignment 3")
-      #   END ASSIGN3_2
+        #   BEGIN ASSIGN3_2
+        raise NotImplementedError("Need to implement for Assignment 3")
+        #   END ASSIGN3_2
 
     @staticmethod
     def backward(ctx: Context, out_grad: Tensor) -> Tensor:
-      #   BEGIN ASSIGN3_2
-      raise NotImplementedError("Need to implement for Assignment 3")
-      #   END ASSIGN3_2
+        #   BEGIN ASSIGN3_2
+        raise NotImplementedError("Need to implement for Assignment 3")
+        #   END ASSIGN3_2
 
 
 # Helpers for Constructing tensors
@@ -559,59 +567,61 @@ def tensor(
 def tensor_from_numpy(
     ls: Storage, backend: TensorBackend = SimpleBackend, requires_grad: bool = False
 ) -> Tensor:
-    """NOTE: This should ONLY be used to initialize a tensor. 
+    """NOTE: This should ONLY be used to initialize a tensor.
     Any other usage could result in undefined behavior.
     """
     if ls.dtype != datatype:
         ls = ls.astype(datatype)
 
-    res =  minitorch.Tensor(
-        v = minitorch.TensorData(
-            ls.flatten(), # Will create a COPY of the numpy array
-            ls.shape, 
-            tuple(i // datasize for i in ls.strides)
+    res = minitorch.Tensor(
+        v=minitorch.TensorData(
+            ls.flatten(),  # Will create a COPY of the numpy array
+            ls.shape,
+            tuple(i // datasize for i in ls.strides),
         ),
-        backend=backend
+        backend=backend,
     )
 
     res.requires_grad_(requires_grad)
-    
+
     return res
 
 
 def zeros_tensor_from_numpy(shape, backend: TensorBackend = SimpleBackend):
-    """NOTE: This should ONLY be used to initialize a tensor. 
+    """NOTE: This should ONLY be used to initialize a tensor.
     Any other usage could result in undefined behavior.
     """
     zs = np.zeros(shape).astype(datatype)
     return minitorch.Tensor(
-        v = minitorch.TensorData(
-            zs.flatten(), # Will create a COPY of the numpy array
-            shape, 
-            tuple(i // datasize for i in zs.strides)
+        v=minitorch.TensorData(
+            zs.flatten(),  # Will create a COPY of the numpy array
+            shape,
+            tuple(i // datasize for i in zs.strides),
         ),
-        backend=backend
+        backend=backend,
     )
 
 
 def ones_tensor_from_numpy(shape, backend: TensorBackend = SimpleBackend):
-    """NOTE: This should ONLY be used to initialize a tensor. 
+    """NOTE: This should ONLY be used to initialize a tensor.
     Any other usage could result in undefined behavior.
     """
     zs = np.ones(shape).astype(datatype)
     return minitorch.Tensor(
-        v = minitorch.TensorData(
-            zs.flatten(), # Will create a COPY of the numpy array
-            shape, 
-            tuple(i // datasize for i in zs.strides)
+        v=minitorch.TensorData(
+            zs.flatten(),  # Will create a COPY of the numpy array
+            shape,
+            tuple(i // datasize for i in zs.strides),
         ),
-        backend=backend
+        backend=backend,
     )
+
 
 # Gradient check for tensors
 
 
 import torch
+
 
 def grad_central_difference(
     f: Any, *vals: Tensor, arg: int = 0, epsilon: float = 1e-6, ind: UserIndex
@@ -619,8 +629,18 @@ def grad_central_difference(
     x = vals[arg]
     up_np = np.zeros(x.shape, dtype=np.float64)
     up_np[ind] = epsilon
-    vals1 = [torch.tensor(x.to_numpy().astype(np.float64)) if j != arg else torch.tensor(x.to_numpy().astype(np.float64) + up_np) for j, x in enumerate(vals)]
-    vals2 = [torch.tensor(x.to_numpy().astype(np.float64)) if j != arg else torch.tensor(x.to_numpy().astype(np.float64) - up_np) for j, x in enumerate(vals)]
+    vals1 = [
+        torch.tensor(x.to_numpy().astype(np.float64))
+        if j != arg
+        else torch.tensor(x.to_numpy().astype(np.float64) + up_np)
+        for j, x in enumerate(vals)
+    ]
+    vals2 = [
+        torch.tensor(x.to_numpy().astype(np.float64))
+        if j != arg
+        else torch.tensor(x.to_numpy().astype(np.float64) - up_np)
+        for j, x in enumerate(vals)
+    ]
     delta = float(f(*vals1).sum() - f(*vals2).sum().numpy())
     # print(f"Debug in grad_central_difference: delta {delta}")
     return delta / (2.0 * epsilon)

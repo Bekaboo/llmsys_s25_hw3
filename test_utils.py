@@ -10,6 +10,8 @@ max_seq_len = 512
 
 random_seed = 42
 random.seed(random_seed)
+
+
 class TestDecorator(object):
     def __init__(self):
         self.all_case = OrderedDict()

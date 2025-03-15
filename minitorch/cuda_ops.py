@@ -125,7 +125,7 @@ class CudaOps(TensorOps):
 
 
 def tensor_map(
-    fn: Callable[[float], float]
+    fn: Callable[[float], float],
 ) -> Callable[[Storage, Shape, Strides, Storage, Shape, Strides], None]:
     """
     CUDA higher-order tensor map function. ::
@@ -139,6 +139,7 @@ def tensor_map(
     Returns:
         Tensor map function.
     """
+
     def _map(
         out: Storage,
         out_shape: Shape,
@@ -164,7 +165,7 @@ def tensor_map(
 
 
 def tensor_zip(
-    fn: Callable[[float, float], float]
+    fn: Callable[[float, float], float],
 ) -> Callable[
     [Storage, Shape, Strides, Storage, Shape, Strides, Storage, Shape, Strides], None
 ]:
@@ -180,6 +181,7 @@ def tensor_zip(
     Returns:
         Tensor zip function.
     """
+
     def _zip(
         out: Storage,
         out_shape: Shape,
@@ -192,12 +194,11 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         a_index = cuda.local.array(MAX_DIMS, numba.int32)
         b_index = cuda.local.array(MAX_DIMS, numba.int32)
         i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-        
+
         # ASSIGN3.3
         if i < out_size:
             to_index(i, out_shape, out_index)
@@ -238,7 +239,7 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     cache = cuda.shared.array(BLOCK_DIM, numba.float64)
     i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     pos = cuda.threadIdx.x
-    
+
     # ASSIGN3.3
     if i < size:
         val = float(a[i])
@@ -273,7 +274,7 @@ def sum_practice(a: Tensor) -> TensorData:
 
 
 def tensor_reduce(
-    fn: Callable[[float, float], float]
+    fn: Callable[[float, float], float],
 ) -> Callable[[Storage, Shape, Strides, Storage, Shape, Strides, int], None]:
     """
     CUDA higher-order tensor reduce function.
@@ -285,6 +286,7 @@ def tensor_reduce(
         Tensor reduce function.
 
     """
+
     def _reduce(
         out: Storage,
         out_shape: Shape,
@@ -437,8 +439,8 @@ def _tensor_matrix_multiply(
     # The final position c[i, j]
     i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     j = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
-    
-    # The local position in the block. 
+
+    # The local position in the block.
     pi = cuda.threadIdx.x
     pj = cuda.threadIdx.y
 
@@ -446,7 +448,7 @@ def _tensor_matrix_multiply(
     # 1) Move across shared dimension by block dim.
     #    a) Copy into shared memory for a matrix.
     #    b) Copy into shared memory for b matrix
-    #    c) Compute the dot produce for position c[i, j] 
+    #    c) Compute the dot produce for position c[i, j]
     # ASSIGN3.4
     accum = 0.0
     for k_start in range(0, a_shape[2], BLOCK_DIM):

@@ -10,7 +10,7 @@ import numpy as np
 class Optimizer:
     def __init__(self, parameters: Sequence[Parameter]):
         self.parameters = parameters
-    
+
     def zero_grad(self) -> None:
         for p in self.parameters:
             if p.value is None:
@@ -31,12 +31,9 @@ class Optimizer:
 
 
 class Adam(Optimizer):
-    def __init__(self,
-                 parameters: Sequence[Parameter],
-                 lr=1e-3,
-                 beta1=0.9,
-                 beta2=0.999,
-                 eps=1e-8):
+    def __init__(
+        self, parameters: Sequence[Parameter], lr=1e-3, beta1=0.9, beta2=0.999, eps=1e-8
+    ):
         super().__init__(parameters=parameters)
         self.lr = lr
         self.beta1 = beta1
@@ -59,24 +56,27 @@ class Adam(Optimizer):
                     # State initialization
                     if len(state) == 0:
                         # print(f'initializing state: tensor_shape = {p.value.shape}')
-                        state['step'] = 0
-                        state['exp_avg'] = grad.zeros()
-                        state['exp_avg_sq'] = grad.zeros()
+                        state["step"] = 0
+                        state["exp_avg"] = grad.zeros()
+                        state["exp_avg_sq"] = grad.zeros()
 
-                    state['step'] += 1
-                    state['exp_avg'] = state['exp_avg'] * self.beta1 + (1 - self.beta1) * grad
-                    state['exp_avg_sq'] = state['exp_avg_sq'] * self.beta2 + (1 - self.beta1) * grad ** 2
+                    state["step"] += 1
+                    state["exp_avg"] = (
+                        state["exp_avg"] * self.beta1 + (1 - self.beta1) * grad
+                    )
+                    state["exp_avg_sq"] = (
+                        state["exp_avg_sq"] * self.beta2 + (1 - self.beta1) * grad**2
+                    )
 
                     # denom = exp_avg_sq.sqrt().add_(group['eps'])
-                    denom = state['exp_avg_sq'] ** 0.5 + self.eps
+                    denom = state["exp_avg_sq"] ** 0.5 + self.eps
 
-                    bias_correction1 = 1. - self.beta1 ** state['step']
-                    bias_correction2 = 1. - self.beta2 ** state['step']
+                    bias_correction1 = 1.0 - self.beta1 ** state["step"]
+                    bias_correction2 = 1.0 - self.beta2 ** state["step"]
 
-                    step_size = self.lr * math.sqrt(
-                        bias_correction2) / bias_correction1
+                    step_size = self.lr * math.sqrt(bias_correction2) / bias_correction1
 
-                    p.update(p.value - step_size * state['exp_avg'] / denom)
+                    p.update(p.value - step_size * state["exp_avg"] / denom)
 
 
 # class Adam(Optimizer):

@@ -19,11 +19,19 @@ if TYPE_CHECKING:
     from typing import Any, List, Tuple, Union
 
     from .tensor import Tensor
-    from .tensor_data import (UserIndex, UserShape,
-                              Storage, OutIndex, Index, Shape, Strides)
+    from .tensor_data import (
+        UserIndex,
+        UserShape,
+        Storage,
+        OutIndex,
+        Index,
+        Shape,
+        Strides,
+    )
 
 datatype = np.float32
 datasize = 4
+
 
 def wrap_tuple(x):  # type: ignore
     "Turn a possible value into a tuple"
@@ -119,6 +127,7 @@ class Mul(Function):
         )
         # END ASSIGN2.4
 
+
 class PowerScalar(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, scalar: Tensor) -> Tensor:
@@ -130,28 +139,30 @@ class PowerScalar(Function):
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """
         NOTE: This returns the incorrect grad for scalar, but this should only be used
-        for a scalar power. Technically it should only return one gradient, but bc. 
-        of minitorch, we return 2. 
+        for a scalar power. Technically it should only return one gradient, but bc.
+        of minitorch, we return 2.
         """
         a, scalar = ctx.saved_values
         return (
             # This only works for scalar. This is derivative of exponential.
             grad_output * (scalar * (a ** (scalar - 1))),
             # This is numerically incorrect, but we return something for minitorch
-            grad_output 
+            grad_output,
         )
+
 
 class Tanh(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor) -> Tensor: 
+    def forward(ctx: Context, a: Tensor) -> Tensor:
         out = a.f.tanh_map(a)
         ctx.save_for_backward(out)
         return out
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         out = ctx.saved_values[0]
-        return grad_output * (-(out ** 2) + 1)
+        return grad_output * (-(out**2) + 1)
+
 
 class Sigmoid(Function):
     @staticmethod
@@ -348,7 +359,7 @@ class MatMul(Function):
             order = list(range(a.dims))
             order[-2], order[-1] = order[-1], order[-2]
             return a._new(a._tensor.permute(*order))
-        
+
         return (
             grad_output.f.matrix_multiply(grad_output, transpose(t2)),
             grad_output.f.matrix_multiply(transpose(t1), grad_output),
@@ -471,43 +482,46 @@ def tensor(
 def tensor_from_numpy(
     ls: Storage, backend: TensorBackend = SimpleBackend, requires_grad: bool = False
 ) -> Tensor:
-    """NOTE: This should ONLY be used to initialize a tensor. 
+    """NOTE: This should ONLY be used to initialize a tensor.
     Any other usage could result in undefined behavior.
     """
     if ls.dtype != datatype:
         ls = ls.astype(datatype)
 
-    res =  minitorch.Tensor(
-        v = minitorch.TensorData(
-            ls.flatten(), # Will create a COPY of the numpy array
-            ls.shape, 
-            tuple(i // datasize for i in ls.strides)
+    res = minitorch.Tensor(
+        v=minitorch.TensorData(
+            ls.flatten(),  # Will create a COPY of the numpy array
+            ls.shape,
+            tuple(i // datasize for i in ls.strides),
         ),
-        backend=backend
+        backend=backend,
     )
 
     res.requires_grad_(True)
-    
+
     return res
 
+
 def zeros_tensor_from_numpy(shape, backend: TensorBackend = SimpleBackend):
-    """NOTE: This should ONLY be used to initialize a tensor. 
+    """NOTE: This should ONLY be used to initialize a tensor.
     Any other usage could result in undefined behavior.
     """
     zs = np.zeros(shape).astype(datatype)
     return minitorch.Tensor(
-        v = minitorch.TensorData(
-            zs.flatten(), # Will create a COPY of the numpy array
-            shape, 
-            tuple(i // datasize for i in zs.strides)
+        v=minitorch.TensorData(
+            zs.flatten(),  # Will create a COPY of the numpy array
+            shape,
+            tuple(i // datasize for i in zs.strides),
         ),
-        backend=backend
+        backend=backend,
     )
+
 
 # Gradient check for tensors
 
 
 import torch
+
 
 def grad_central_difference(
     f: Any, *vals: Tensor, arg: int = 0, epsilon: float = 1e-6, ind: UserIndex
@@ -515,8 +529,18 @@ def grad_central_difference(
     x = vals[arg]
     up_np = np.zeros(x.shape, dtype=np.float64)
     up_np[ind] = epsilon
-    vals1 = [torch.tensor(x.to_numpy().astype(np.float64)) if j != arg else torch.tensor(x.to_numpy().astype(np.float64) + up_np) for j, x in enumerate(vals)]
-    vals2 = [torch.tensor(x.to_numpy().astype(np.float64)) if j != arg else torch.tensor(x.to_numpy().astype(np.float64) - up_np) for j, x in enumerate(vals)]
+    vals1 = [
+        torch.tensor(x.to_numpy().astype(np.float64))
+        if j != arg
+        else torch.tensor(x.to_numpy().astype(np.float64) + up_np)
+        for j, x in enumerate(vals)
+    ]
+    vals2 = [
+        torch.tensor(x.to_numpy().astype(np.float64))
+        if j != arg
+        else torch.tensor(x.to_numpy().astype(np.float64) - up_np)
+        for j, x in enumerate(vals)
+    ]
     delta = float(f(*vals1).sum() - f(*vals2).sum().numpy())
     # print(f"Debug in grad_central_difference: delta {delta}")
     return delta / (2.0 * epsilon)
