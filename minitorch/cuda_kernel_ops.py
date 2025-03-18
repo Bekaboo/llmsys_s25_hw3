@@ -467,9 +467,36 @@ class CudaKernelOps(TensorOps):
 
     @staticmethod
     def attn_softmax_bw(out_grad: Tensor, soft_inp: Tensor):
-        #   BEGIN ASSIGN3_1
-        raise ("Not implemented")
-        #   END ASSIGN3_1
+        batch_size, nhead, from_len, to_len = out_grad.shape
+        rows = batch_size * nhead * from_len
+        softmax_len = to_len
+        stream = torch.cuda.current_stream().cuda_stream
+
+        # Create a new tensor for the result to avoid modifying the input
+        result = out_grad.zeros(out_grad.shape)
+
+        # Copy the gradient to the result tensor
+        result._tensor._storage[:] = out_grad._tensor._storage[:]
+
+        lib_softmax.launch_attn_softmax_bw.argtypes = [
+            np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags="C_CONTIGUOUS"),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_void_p,
+        ]
+        lib_softmax.launch_attn_softmax_bw.restype = None
+
+        # Call the CUDA kernel with the result tensor's storage
+        lib_softmax.launch_attn_softmax_bw(
+            result._tensor._storage,
+            soft_inp._tensor._storage,
+            rows,
+            softmax_len,
+            stream,
+        )
+
+        return result
 
     @staticmethod
     def layernorm_fw(inp: Tensor, gamma: Tensor, beta: Tensor):
