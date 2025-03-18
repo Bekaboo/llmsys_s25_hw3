@@ -142,7 +142,9 @@ class PowerScalar(Function):
                 Tensor containing the result of raising every element of a to scalar.
         """
         # COPY FROM ASSIGN2_1
-        raise NotImplementedError
+        out = a.f.pow_scalar_zip(a, scalar)
+        ctx.save_for_backward(a, scalar)
+        return out
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
@@ -167,7 +169,7 @@ class PowerScalar(Function):
         grad_a = None
 
         # COPY FROM ASSIGN2_1
-        raise NotImplementedError
+        grad_a = grad_output * (scalar * (a ** (scalar - 1)))
 
         return (grad_a, 0.0)
 
@@ -436,7 +438,9 @@ class LayerNorm(Function):
     @staticmethod
     def forward(ctx: Context, inp: Tensor, gamma: Tensor, beta: Tensor) -> Tensor:
         #   BEGIN ASSIGN3_2
-        raise NotImplementedError("Need to implement for Assignment 3")
+        result, vars, means = inp.f.layernorm_fw(inp, gamma, beta)
+        ctx.save_for_backward(inp, gamma, beta, vars, means)
+        return result
         #   END ASSIGN3_2
 
     @staticmethod
