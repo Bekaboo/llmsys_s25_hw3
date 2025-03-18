@@ -13,15 +13,9 @@ import numpy as np
 from .module import Module, Parameter
 from .nn import one_hot
 from .tensor import Tensor
-from .tensor_functions import (
-    ones,
-    ones_tensor_from_numpy,
-    rand,
-    tensor,
-    tensor_from_numpy,
-    zeros,
-    zeros_tensor_from_numpy,
-)
+from .tensor_functions import (ones, ones_tensor_from_numpy, rand, tensor,
+                               tensor_from_numpy, zeros,
+                               zeros_tensor_from_numpy)
 from .tensor_ops import TensorBackend
 
 
@@ -148,24 +142,42 @@ class Linear(Module):
 
 
 class LayerNorm1d(Module):
-    def __init__(self, dim: int, eps: float, backend: TensorBackend):
+    def __init__(
+        self,
+        dim: int,
+        eps: float,
+        backend: TensorBackend,
+        use_fused_kernel: bool = False,
+    ):
         super().__init__()
         """Applies Layer Normalization over a mini-batch of 1-dimensional inputs.
         
         Args: 
-            dim : Expected size of the last dimension to apply layer normalization.
-            eps : A value added for numerical stability.
+            dim              : Expected size of the last dimension to apply layer normalization.
+            eps              : A value added for numerical stability.
+            backend          : Tensor backend, can use CUDA or simple backend
+            use_fused_kernel : If True, use fused attention-softmax and layernorm kernel for speedup
         
         Attributes: 
-            weights : the learnable weights of the module of shape (self.dim, ) initialized to 1.
-            bias    : the learnable bias of the module of shape (self.dim, ) initialized to 0.
+            weights          : the learnable weights of the module of shape (self.dim, ) initialized to 1.
+            bias             : the learnable bias of the module of shape (self.dim, ) initialized to 0.
+            use_fused_kernel : If True, use fused attention-softmax and layernorm kernel for speedup
         """
+        self.use_fused_kernel = use_fused_kernel
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
         self.weights = Parameter(ones((dim,), backend=backend))
         self.bias = Parameter(zeros((dim,), backend=backend))
         ### END YOUR SOLUTION
+
+        if use_fused_kernel:
+            self.gamma = Parameter(
+                tensor_from_numpy(np.ones((dim,)), backend=backend, requires_grad=True)
+            )
+            self.beta = Parameter(
+                tensor_from_numpy(np.zeros((dim,)), backend=backend, requires_grad=True)
+            )
 
     def forward(self, x: Tensor) -> Tensor:
         """Applies Layer Normalization over a mini-batch of inputs.
@@ -179,6 +191,9 @@ class LayerNorm1d(Module):
             output - Tensor of shape (bs, dim)
         """
         ### BEGIN YOUR SOLUTION
+        if self.use_fused_kernel:
+            return x.layernorm(self.gamma.value, self.beta.value)
+
         mean = x.mean(1)
         var = x.var(1)
         x_normalized = (x - mean) / ((var + self.eps) ** 0.5)

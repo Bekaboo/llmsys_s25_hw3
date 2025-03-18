@@ -20,24 +20,29 @@ class MultiHeadAttention(Module):
         p_dropout: float = 0.1,
         bias: bool = True,
         backend: TensorBackend = None,
+        use_fused_kernel: bool = False,
     ):
         super().__init__()
         """Implements Multi-Head Attention as described in "Attention Is All You Need"
 
         Args:
-            n_embd    : Dimensionality of embeddings and hidden states
-            n_head    : Number of heads
-            p_dropout : Dropout ratio for dropout layer
-            causal    : If True, then apply a causal mask during self-attention
-            bias      : If True, then apply a bias in Linear layers
+            n_embd           : Dimensionality of embeddings and hidden states
+            n_head           : Number of heads
+            p_dropout        : Dropout ratio for dropout layer
+            causal           : If True, then apply a causal mask during self-attention
+            bias             : If True, then apply a bias in Linear layers
+            backend          : Tensor backend, can use CUDA or simple backend
+            use_fused_kernel : If True, use fused attention-softmax and layernorm kernel for speedup
         
         Attributes:
-            q_projection   : Linear layer projecting input to Q matrix
-            k_projection   : Linear layer projecting input to K matrix
-            v_project      : Linear layer projecting input to V matrix
-            out_projection : Linear output projection layer
-            dropout        : Dropout layer
+            q_projection     : Linear layer projecting input to Q matrix
+            k_projection     : Linear layer projecting input to K matrix
+            v_project        : Linear layer projecting input to V matrix
+            out_projection   : Linear output projection layer
+            dropout          : Dropout layer
+            use_fused_kernel : If True, use fused attention-softmax and layernorm kernel for speedup
         """
+        self.use_fused_kernel = use_fused_kernel
         self.backend = backend
         self.n_embd = n_embd
         self.n_head = n_head
@@ -121,40 +126,41 @@ class MultiHeadAttention(Module):
         Returns:
             output : Tensor of shape (batch_size, seq_len, n_embd)
         """
-        batch_size, num_head, queries_len, q_dim = q.shape
+        batch_size, _, seq_len, q_dim = q.shape
         _, _, k_dim, _ = kT.shape
         _, _, _, v_dim = v.shape
         assert q_dim == k_dim == v_dim
         result = None
 
         ### BEGIN YOUR SOLUTION
-        att = (q @ kT) / (self.attn_hidden_dim**0.5)
+        attn = (q @ kT) / (self.attn_hidden_dim**0.5)
 
         # print("----------------------------------------")
         # print(f"att.shape: {att.shape}")
 
-        if self.causal:
-            mask = self.create_causal_mask(queries_len)
-            att = att + mask
+        mask = self.create_causal_mask(seq_len) if self.causal else np.zeros_like(attn)
 
-        att_weights = softmax(att, dim=3)
-        att_weights = self.dropout(att_weights)
+        if self.use_fused_kernel:
+            attn = attn.attn_softmax(mask)
+        else:
+            attn = attn + mask
+            attn = softmax(attn, dim=3)
+
+        attn = self.dropout(attn)
 
         # print(f"att_weights.shape: {att_weights.shape}")
         # print(f"v.shape: {v.shape}")
 
-        result = att_weights @ v
+        result = attn @ v
 
         # print(f"result.shape (init): {result.shape}")
 
         # (batch_size, num_head, seq_len, attn_hidden_dim) -> (batch_size, seq_len, num_head, attn_hidden_dim)
         result = result.permute(0, 2, 1, 3)
         # n_embd = seq_len * attn_hidden_dim
-        result = result.contiguous().view(batch_size, queries_len, self.n_embd)
+        result = result.contiguous().view(batch_size, seq_len, self.n_embd)
 
-        result = self.out_projection(result.view(batch_size * queries_len, self.n_embd))
-
-        return result.view(batch_size, queries_len, self.n_embd)
+        return result
         ### END YOUR SOLUTION
 
     def forward(self, x):
@@ -167,8 +173,11 @@ class MultiHeadAttention(Module):
             output : Tensor of shape (batch_size, seq_len, embedding_dim)
         """
         ### BEGIN YOUR SOLUTION
+        batch_size, seq_len, n_embd = x.shape
         q, kT, v = self.project_to_query_key_value(x)
-        return self.self_attention(q, kT, v)
+        output = self.self_attention(q, kT, v)
+        output = self.out_projection(output.view(batch_size * seq_len, self.n_embd))
+        return output
         ### END YOUR SOLUTION
 
 
@@ -228,7 +237,8 @@ class TransformerLayer(Module):
         p_dropout: float = 0.1,
         ln_eps: float = 1e-5,
         bias: bool = True,
-        backend: TensorBackend = None,
+        backend: TensorBackend | None = None,
+        use_fused_kernel: bool = False,
     ):
         super().__init__()
         """A Transformer Layer in a Pre-LN Transformer.
@@ -239,6 +249,8 @@ class TransformerLayer(Module):
             p_dropout : Dropout ratio for dropout layer
             ln_eps : A value added for numerical stability in LayerNorm
             bias : If bias should be added in linear layers
+            backend : Tensor backend, can use CUDA or simple backend
+            use_fused_kernel : If True, use fused attention-softmax and layernorm kernel for speedup
         
         Attributes:
             ln_1 : First LayerNorm1d layer before MultiHeadAttention
@@ -247,10 +259,20 @@ class TransformerLayer(Module):
             ff : FeedForward layer
         """
         ### BEGIN YOUR SOLUTION
-        self.ln_1 = LayerNorm1d(n_embd, eps=ln_eps, backend=backend)
-        self.ln_2 = LayerNorm1d(n_embd, eps=ln_eps, backend=backend)
+        self.ln_1 = LayerNorm1d(
+            n_embd, eps=ln_eps, backend=backend, use_fused_kernel=use_fused_kernel
+        )
+        self.ln_2 = LayerNorm1d(
+            n_embd, eps=ln_eps, backend=backend, use_fused_kernel=use_fused_kernel
+        )
         self.attention = MultiHeadAttention(
-            n_embd, n_head, p_dropout=p_dropout, causal=True, bias=bias, backend=backend
+            n_embd,
+            n_head,
+            p_dropout=p_dropout,
+            causal=True,
+            bias=bias,
+            backend=backend,
+            use_fused_kernel=use_fused_kernel,
         )
         self.ff = FeedForward(
             n_embd,
@@ -295,7 +317,8 @@ class DecoderLM(Module):
         p_dropout: float = 0.1,
         ln_eps: float = 1e-5,
         bias: bool = True,
-        backend: TensorBackend = None,
+        backend: TensorBackend | None = None,
+        use_fused_kernel: bool = False,
     ):
         super().__init__()
         """A Full Decoder-only Pre-LN Transformer with 4 Transformer Layers.
@@ -308,6 +331,8 @@ class DecoderLM(Module):
             p_dropout : The dropout ratio for any dropout layer.
             ln_eps : The epsilon to use in the layer normalization layers.
             bias : If linear layers should include a bias.
+            backend: Tensor backend, can use CUDA or simple backend
+            use_fused_kernel: whether to use fused attention-softmax and layernorm kernel for speedup
         
         Attributes:
             token_embeddings : Embedding layer for tokens.
@@ -330,16 +355,16 @@ class DecoderLM(Module):
 
         # Transformer layers
         self.t_layer_1 = TransformerLayer(
-            n_embd, n_head, p_dropout, ln_eps, bias, backend
+            n_embd, n_head, p_dropout, ln_eps, bias, backend, use_fused_kernel
         )
         self.t_layer_2 = TransformerLayer(
-            n_embd, n_head, p_dropout, ln_eps, bias, backend
+            n_embd, n_head, p_dropout, ln_eps, bias, backend, use_fused_kernel
         )
         self.t_layer_3 = TransformerLayer(
-            n_embd, n_head, p_dropout, ln_eps, bias, backend
+            n_embd, n_head, p_dropout, ln_eps, bias, backend, use_fused_kernel
         )
         self.t_layer_4 = TransformerLayer(
-            n_embd, n_head, p_dropout, ln_eps, bias, backend
+            n_embd, n_head, p_dropout, ln_eps, bias, backend, use_fused_kernel
         )
 
         # Additional layers

@@ -1,15 +1,16 @@
-from functools import partial
-import time
-import os
-import fire
-import tqdm
 import json
+import os
 import random
+import time
+from functools import partial
+
 import datasets
+import fire
 import numpy as np
+import tqdm
 from sacrebleu.metrics import BLEU
-from transformers import AutoTokenizer
 from tokenizers import ByteLevelBPETokenizer
+from transformers import AutoTokenizer
 
 import minitorch
 from minitorch import DecoderLM
