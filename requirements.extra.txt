@@ -1,4 +1,4 @@
-datasets==2.4.0
+datasets==3.2.0
 embeddings==0.0.8
 networkx==2.4
 plotly==4.14.3
@@ -9,3 +9,7 @@ streamlit-ace
 torch
 watchdog==1.0.2
 fire
+sacrebleu
+tokenizers
+transformers
+wrapt
