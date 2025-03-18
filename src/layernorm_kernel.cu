@@ -210,15 +210,69 @@ ker_ln_bw_dgamma_dbetta(T *gamma_grad, T *betta_grad, const T *out_grad,
   cg::thread_block b = cg::this_thread_block();
   cg::thread_block_tile<TILE_DIM> g = cg::tiled_partition<TILE_DIM>(b);
 
+  int idx = blockDim.x * blockIdx.x + threadIdx.x;
+  int offset = threadIdx.y * width + idx;
+  int y_stride = width * TILE_DIM;
+
   // Step 1
+  float dbetta = 0;
+  float dgamma = 0;
+  float dout, val;
+
+  float thread_cmax_g = 0;
+  if (idx < width) {
+    if (means == nullptr) {
+      float vbetta = (float)betta[idx];
+      float vgamma = (float)gamma[idx];
+      for (int r = threadIdx.y; r < rows; r += TILE_DIM) {
+        dout = (float)out_grad[offset];
+
+        val = (float)inp[offset];
+        dbetta += dout;
+        dgamma += ((val - vbetta) / vgamma * dout);
+        offset += y_stride;
+      }
+    } else {
+      for (int r = threadIdx.y; r < rows; r += TILE_DIM) {
+        dout = (float)out_grad[offset];
+        val = (float)inp[offset];
+        dbetta += dout;
+        dgamma += ((val - (float)means[r]) *
+                   rsqrtf((float)vars[r] + LN_EPSILON) * dout);
+        offset += y_stride;
+      }
+    }
+  }
 
   // Step 2
+  __shared__ float block_cmax_g;
+  if (threadIdx.x == 0 && threadIdx.y == 0)
+    block_cmax_g = 0;
+
+  betta_buffer[threadIdx.x][threadIdx.y] = dbetta;
+  gamma_buffer[threadIdx.x][threadIdx.y] = dgamma;
+  __syncthreads();
+
+  if (thread_cmax_g != 0) {
+    atomicAdd(&block_cmax_g, thread_cmax_g);
+  }
+
+  float s1 = betta_buffer[threadIdx.y][threadIdx.x];
+  float s2 = gamma_buffer[threadIdx.y][threadIdx.x];
+  __syncthreads();
 
   // Step 3
+  for (int i = 1; i < TILE_DIM; i <<= 1) {
+    s1 += g.shfl_down(s1, i);
+    s2 += g.shfl_down(s2, i);
+  }
 
   // Step 4
-
-  assert(false && "Not Implemented");
+  int pos = blockIdx.x * TILE_DIM + threadIdx.y;
+  if (threadIdx.x == 0 && idx < width) {
+    betta_grad[pos] = s1;
+    gamma_grad[pos] = s2;
+  }
   /// END ASSIGN3_2
 }
 
@@ -267,14 +321,61 @@ __global__ void ker_ln_bw_dinp(T *inp_grad, const T *out_grad, const T *inp,
   // 4. Compute final gradient
 
   // Step 1
+  int offset = blockIdx.x * hidden_dim + threadIdx.x;
+  float4 dxhat, xhat;
+  float var_rsqrt;
+  if (threadIdx.x < hidden_dim) {
+    dxhat = ((const float4 *)out_grad)[offset];
+    float4 vgamma = ((const float4 *)gamma)[threadIdx.x];
+    dxhat.x *= vgamma.x;
+    dxhat.y *= vgamma.y;
+    dxhat.z *= vgamma.z;
+    dxhat.w *= vgamma.w;
 
-  // Step 2
+    // Step 2
+    xhat = ((const float4 *)inp)[offset];
+    var_rsqrt = rsqrtf((float)vars[blockIdx.x] + LN_EPSILON);
+    if (means == nullptr) {
+      float4 vbetta = ((const float4 *)betta)[threadIdx.x];
+      xhat.x = (xhat.x - vbetta.x) / vgamma.x;
+      xhat.y = (xhat.y - vbetta.y) / vgamma.y;
+      xhat.z = (xhat.z - vbetta.z) / vgamma.z;
+      xhat.w = (xhat.w - vbetta.w) / vgamma.w;
+    } else {
+      float fmean = (float)means[blockIdx.x];
+      xhat.x = (xhat.x - fmean) * var_rsqrt;
+      xhat.y = (xhat.y - fmean) * var_rsqrt;
+      xhat.z = (xhat.z - fmean) * var_rsqrt;
+      xhat.w = (xhat.w - fmean) * var_rsqrt;
+    }
+  }
 
   // Step 3
+  float reduce_val[2] = {0.f, 0.f};
+  if (threadIdx.x < hidden_dim) {
+    reduce_val[0] = dxhat.x + dxhat.y + dxhat.z + dxhat.w;
+    reduce_val[1] = dxhat.x * xhat.x + dxhat.y * xhat.y + dxhat.z * xhat.z +
+                    dxhat.w * xhat.w;
+  }
+  blockReduce<ReduceType::kSum, 2>(reduce_val);
+  __shared__ float s_sum_dxhat, s_sum_dxhat_xhat;
+  if (threadIdx.x == 0) {
+    float mean_dim = hidden_dim * 4;
+    s_sum_dxhat = reduce_val[0] / mean_dim;
+    s_sum_dxhat_xhat = reduce_val[1] / mean_dim;
+  }
+  __syncthreads();
 
   // Step 4
+  if (threadIdx.x >= hidden_dim) {
+    return;
+  }
+  dxhat.x = (dxhat.x - s_sum_dxhat - xhat.x * s_sum_dxhat_xhat) * var_rsqrt;
+  dxhat.y = (dxhat.y - s_sum_dxhat - xhat.y * s_sum_dxhat_xhat) * var_rsqrt;
+  dxhat.z = (dxhat.z - s_sum_dxhat - xhat.z * s_sum_dxhat_xhat) * var_rsqrt;
+  dxhat.w = (dxhat.w - s_sum_dxhat - xhat.w * s_sum_dxhat_xhat) * var_rsqrt;
 
-  assert(false && "Not Implemented");
+  ((float4 *)inp_grad)[offset] = dxhat;
   /// END ASSIGN3_2
 }
 extern "C" {
