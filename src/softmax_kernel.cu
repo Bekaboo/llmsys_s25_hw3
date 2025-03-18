@@ -402,6 +402,7 @@ void launch_attn_softmax_bw(float *out_grad, const float *soft_inp, int rows,
   cudaDeviceSynchronize();
 
   // Free memory on device
+  cudaFree(d_out_grad);
   cudaFree(d_soft_inp);
   // END ASSIGN3_1
 }
