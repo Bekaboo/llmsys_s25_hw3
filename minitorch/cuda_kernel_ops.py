@@ -1,4 +1,10 @@
+import ctypes
 from typing import Callable, Optional
+
+import numpy as np
+import pycuda.autoinit
+import pycuda.driver as cuda
+import torch
 
 from . import operators
 from .tensor import Tensor
@@ -13,14 +19,8 @@ from .tensor_data import (
     shape_broadcast,
     to_index,
 )
-from .tensor_ops import MapProto, TensorOps
 from .tensor_functions import tensor_from_numpy
-
-import ctypes
-import numpy as np
-import pycuda.autoinit
-import pycuda.driver as cuda
-import torch
+from .tensor_ops import MapProto, TensorOps
 
 # Load the shared library
 lib = ctypes.CDLL("minitorch/cuda_kernels/combine.so")

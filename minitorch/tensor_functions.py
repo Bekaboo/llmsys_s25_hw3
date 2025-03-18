@@ -8,7 +8,6 @@ import random
 from typing import TYPE_CHECKING
 
 import numpy as np
-import copy
 
 import minitorch
 
@@ -20,15 +19,8 @@ if TYPE_CHECKING:
     from typing import Any, List, Tuple, Union
 
     from .tensor import Tensor
-    from .tensor_data import (
-        UserIndex,
-        UserShape,
-        Storage,
-        OutIndex,
-        Index,
-        Shape,
-        Strides,
-    )
+    from .tensor_data import (Index, OutIndex, Shape, Storage, Strides,
+                              UserIndex, UserShape)
 
 datatype = np.float32
 datasize = 4
