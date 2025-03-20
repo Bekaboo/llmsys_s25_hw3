@@ -294,16 +294,22 @@ class TransformerLayer(Module):
         """
         ### BEGIN YOUR SOLUTION
         batch_size, seq_len, n_embd = x.shape
-        x_norm = self.ln_1(x.view(batch_size * seq_len, n_embd))
+        # (batch_size * seq_len, n_embd)
+        x = x.view(batch_size * seq_len, n_embd)
+        x_norm = self.ln_1(x)
+        # (batch_size * seq_len, n_embd)
         attn_out = self.attention(x_norm.view(batch_size, seq_len, n_embd))
-        x = x + attn_out  # Residual connection
+        # Residual connection (batch_size * seq_len, n_embd)
+        x = x + attn_out
 
-        # Pre-LayerNorm for FFN
-        x_norm = self.ln_2(x.view(batch_size * seq_len, n_embd))
+        # Pre-LayerNorm for FFN (batch_size * seq_len, n_embd)
+        x_norm = self.ln_2(x)
+        # (batch_size, seq_len, n_embd)
         ffn_out = self.ff(x_norm.view(batch_size, seq_len, n_embd))
-        x = x + ffn_out  # Residual connection
+        # Residual connection (batch_size, seq_len, n_embd)
+        x = x.view(batch_size, seq_len, n_embd) + ffn_out
 
-        return x.view(batch_size, seq_len, n_embd)
+        return x
         ### END YOUR SOLUTION
 
 
