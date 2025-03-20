@@ -347,6 +347,7 @@ def main(
     n_vocab=10000,
     n_embd=256,
     seed=11111,
+    use_fused_kernel=False,
 ):
     """
     The main function to train and evaluate the model on a specified dataset.
@@ -361,6 +362,7 @@ def main(
     - n_vocab: The vocabulary size of the BPE tokenizer.
     - n_embd: The embedding dimension.
     - seed: Random seed.
+    - use_fused_kernel: Whether to use fused attention-softmax and layernorm kernel for speedup.
     """
 
     np.random.seed(seed)
@@ -380,6 +382,7 @@ def main(
         "p_dropout": 0.1,  # x_pdrop
         "ln_eps": 1e-5,  # layer_norm_epsilon
         "backend": backend,
+        "use_fused_kernel": use_fused_kernel,
     }
 
     model = DecoderLM(**config)
